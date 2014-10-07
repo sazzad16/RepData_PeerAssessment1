@@ -1,25 +1,72 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
 output: 
-  html_document:
-    keep_md: true
+html_document:
+keep_md: true
 ---
 
 
 ## Loading and preprocessing the data
+```{r}
+unzip("./activity.zip")
+activity <- read.csv("./activity.csv", na.strings = "NA", 
+                     colClasses = c("numeric", "Date", "integer"))
+activity$minute <- sapply(activity$interval, function(x) {x%/%100*60+x%%100})
+head(activity)
+tail(activity)
+```
 
 
 
 ## What is mean total number of steps taken per day?
+```{r}
+eachday <- aggregate(steps ~ date, data = activity, FUN = sum)
+hist(eachday$steps)
+mean(eachday$steps)
+median(eachday$steps)
+```
 
 
 
 ## What is the average daily activity pattern?
+```{r}
+eachtime <- aggregate(steps ~ minute + interval, data = activity, FUN = mean)
+plot(eachtime$minute, eachtime$steps, type = "l")
+eachtime[eachtime$steps >= max(eachtime$steps), ]
+```
 
 
 
 ## Imputing missing values
+```{r}
+sum(!complete.cases(activity))
+
+# for filling in the missing values in `steps`, 
+# using the median for that 5-minute interval
+newdata <- activity
+newdata$steps <- with(newdata, do.call(c, tapply(steps, minute, function(y) {
+    ym <- median(y, na.rm=TRUE)
+    y[is.na(y)] <- ym
+    y
+})))
+head(newdata)
+tail(newdata)
+eachdaynew <- aggregate(steps ~ date, data = newdata, FUN = sum)
+hist(eachdaynew$steps)
+mean(eachdaynew$steps)
+median(eachdaynew$steps)
+```
 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+newdata$daytype <- as.factor(sapply(weekdays(newdata$date), function(x) {
+    if(grepl("^S", x)) {"weekend"}
+    else {"weekday"}
+}))
+bydaytype <- aggregate(steps ~ minute + daytype, data = newdata, FUN = mean)
+
+library(lattice)
+xyplot(steps ~ minute | daytype, data = bydaytype, type = "l", layout = c(1, 2))
+```
